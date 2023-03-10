@@ -1,0 +1,363 @@
+  // #include <Stepper.h>
+
+#define RADIANS(d) ((d)*(double)M_PI/180.0f)
+#define DEGREES(r) ((r)*180.0f/(double)M_PI)
+#define sq(x) x*x
+
+// Define pin connections & motor's steps per revolution
+const int dirPin1 = 2;  //x
+const int stepPin1 = 3; //x
+const int dirPin2 = 4;  //y
+const int stepPin2 = 5;  //y
+const int stepsPerRevolution = 1600;   //Nema17 takes 200 steps per turn (1/8th microstep = 1600 steps/rev)
+// const int stepsPerRevolution = 200;   //Nema17 takes 200 steps per turn 
+const int gear_advantage = 3;   // 1/(20/60)
+///////////////////////////////////////
+ int microDelay = 4000;          //
+const int pathParsePrecision = 12;  //
+const float L1 = 160;                //
+const float L2 = 160;                //
+const float SCARA_OFFSET_X = 0.0;    //
+const float SCARA_OFFSET_Y = 0.0;    //
+const int PRINTING_TIME = 0;         //
+double current_X_Pos = 320.0;        //
+double current_Y_Pos = 0.0;          //
+double current_theta = 0.0;          //
+double current_psi = 0.0;            //
+///////////////////////////////////////
+const float L1_2 = sq(L1);
+const float L2_2 = sq(L2);
+const int X_AXIS = 0;
+const int Y_AXIS = 1;
+
+const byte numChars = 32;
+char receivedChars[numChars];
+boolean newData = false;
+char tempChars[numChars];
+// int intFromPC = 0;
+float float1FromPC = 0.0;
+float float2FromPC = 0.0;
+int intFromPC = 0;
+
+static double SCARA_C2, SCARA_S2, SCARA_K1, SCARA_K2, SCARA_theta, SCARA_psi;
+double TO_X_AXIS;
+double TO_Y_AXIS;
+double TO_THETA;
+double TO_PSI;
+int is_X_clockwise;
+int is_Y_clockwise;
+
+
+
+
+
+void setup()
+{
+  // Declare pins as Outputs
+	pinMode(stepPin1, OUTPUT);
+	pinMode(dirPin1, OUTPUT);
+	pinMode(stepPin2, OUTPUT);
+	pinMode(dirPin2, OUTPUT);
+  Serial.begin(115200);
+  Serial.println("\n-----------------------------------------------------------------\n<Arduino is Ready> enter: \"<X, Y>\"");  
+
+}
+// helped from github open source @https://github.com/tuenhidiy/SINGLE-ARM-SCARA-ROBOT.
+void loop()
+{
+    recvWithStartEndMarkers();
+    if (newData == true) {
+        strcpy(tempChars, receivedChars);
+            // this temporary copy is necessary to protect the original data
+            //   because strtok() used in parseData() replaces the commas with \0
+        parseData();
+        useNewData();
+        newData = false;
+    }
+
+
+}
+
+
+void recvWithStartEndMarkers() {
+    static boolean recvInProgress = false;
+    static byte ndx = 0;
+    char startMarker = '<';
+    char endMarker = '>';
+    char rc;
+
+    while (Serial.available() > 0 && newData == false) {
+        rc = Serial.read();
+
+        if (recvInProgress == true) {
+            if (rc != endMarker) {
+                receivedChars[ndx] = rc;
+                ndx++;
+                if (ndx >= numChars) {
+                    ndx = numChars - 1;
+                }
+            }
+            else {
+                receivedChars[ndx] = '\0'; // terminate the string
+                recvInProgress = false;
+                ndx = 0;
+                newData = true;
+            }
+        }
+
+        else if (rc == startMarker) {
+            recvInProgress = true;
+        }
+    }
+}
+
+void useNewData() {
+    if (newData == true) {
+      delay(2000);
+        float path_vector_X = current_X_Pos - float1FromPC;   // get total path vector
+        float path_vector_Y = current_Y_Pos - float2FromPC;   // ^
+        float path_vector_segment_X = path_vector_X / pathParsePrecision;       // scale by pathParsePrecision to iterate small segments
+        float path_vector_segment_Y = path_vector_Y / pathParsePrecision;       // ^
+
+        for (int i = 0; i < pathParsePrecision; i++){
+            if (PRINTING_TIME == 1){
+                Serial.print("\n-----------------------------------------------------------------\nRecieved");
+            }
+            TO_X_AXIS = current_X_Pos - path_vector_segment_X; // initialize new small segment location scaled
+            TO_Y_AXIS = current_Y_Pos - path_vector_segment_Y; // ^
+
+            double new_cur_X = TO_X_AXIS;  // holds the desired actual coordinate location to update later
+            double new_cur_Y = TO_Y_AXIS;  // ^
+
+            // TO_X_AXIS -= current_X_Pos; // compensate for the current position 
+            // TO_Y_AXIS -= current_Y_Pos; // ^
+            // TO_X_AXIS += 320;           // <320, 0> is the default, "no action required" position
+            // TO_Y_AXIS += 0;             // ^
+
+            current_X_Pos = new_cur_X; // takes the raw new coordinate as the new current 
+            current_Y_Pos = new_cur_Y; // ^
+
+
+
+            // is_clockwise = intFromPC;
+            if (PRINTING_TIME == 1){
+                Serial.print("\nTO_X_AXIS: ");
+                Serial.print(TO_X_AXIS);
+                Serial.print("\nTO_Y_AXIS: ");
+                Serial.print(TO_Y_AXIS);
+            }
+            // Serial.print("\nis_clockwise: ");
+            // Serial.print(is_clockwise);
+            
+            double SCARA_pos[2];
+
+            SCARA_pos[X_AXIS] = TO_X_AXIS + SCARA_OFFSET_X; 
+            // SCARA_pos[X_AXIS] = -TO_X_AXIS - SCARA_OFFSET_X; 
+            SCARA_pos[Y_AXIS] = TO_Y_AXIS + SCARA_OFFSET_Y;  
+
+            SCARA_C2 =   (sq(SCARA_pos[X_AXIS]) + sq(SCARA_pos[Y_AXIS]) - L1_2 - L2_2 ) /(2*L1*L2);
+            SCARA_S2 = sqrtf( 1 - sq(SCARA_C2) );
+
+            SCARA_K1 = L1 + L2 * SCARA_C2;
+            SCARA_K2 = L2 * SCARA_S2;
+
+            SCARA_theta = ( atan2f(SCARA_K1, SCARA_K2)-atan2f(SCARA_pos[X_AXIS],SCARA_pos[Y_AXIS]) ) ;
+            SCARA_psi   =   atan2f(SCARA_S2,SCARA_C2);
+            // SCARA_psi   =   atan2f(SCARA_S2,SCARA_C2) + SCARA_theta;
+
+            // Serial.print("\nL_2: ");
+            // Serial.print(L1_2);
+            // Serial.print("\nSCARA_C2: ");
+            // Serial.print(SCARA_C2);
+            // Serial.print("\nSCARA_S2: ");
+            // Serial.print(SCARA_S2);
+            // Serial.print("\nSCARA_K1: ");
+            // Serial.print(SCARA_K1);
+            // Serial.print("\nSCARA_K2: ");
+            // Serial.print(SCARA_K2);
+            // Serial.print("\nSCARA_theta: ");
+            // Serial.print(SCARA_theta);
+            // Serial.print("\nSCARA_psi: ");
+            // Serial.print(SCARA_psi);
+
+            // Serial.print("\nCurrent X: ");
+            // Serial.print(current_X_Pos);
+            // Serial.print("\nCurrent Y: ");
+            // Serial.print(current_Y_Pos);
+            if (PRINTING_TIME == 1){
+                Serial.print("\nTheta: ");
+                Serial.print(SCARA_theta);
+                Serial.print("\nPsi: ");
+                Serial.print(SCARA_psi);
+
+                Serial.print("\nCurrent theta: ");
+                Serial.print(current_theta);
+                Serial.print("\nCurrent psi: ");
+                Serial.print(current_psi);
+            }
+
+            if (current_theta > SCARA_theta){ 
+              TO_THETA = abs(SCARA_theta - current_theta);    // magnitude difference
+              is_X_clockwise = 1;                             // direction difference
+              current_theta -= TO_THETA;                      // updates new angle
+            }
+            else{ // (current_theta < SCARA_theta) || (current_theta == SCARA_theta)
+              TO_THETA = abs(current_theta - SCARA_theta);    // magnitude difference
+              is_X_clockwise = 0;                             // direction difference
+              current_theta += TO_THETA;                      // updates new angle
+            }
+
+
+            if (current_psi > SCARA_psi){
+              TO_PSI = abs(current_psi - SCARA_psi);          // magnitude difference
+              is_Y_clockwise = 1;                             // direction difference
+              current_psi -= TO_PSI;                        // updates new angle
+            }
+            else{ // (current_psi < SCARA_psi) || (current_psi == SCARA_psi)
+              TO_PSI = abs(SCARA_psi - current_psi);          // magnitude difference
+              is_Y_clockwise = 0;                             // direction difference
+              current_psi += TO_PSI;                        // updates new angle
+            }
+
+            if (PRINTING_TIME == 1){
+                Serial.print("\nTO_THETA: ");
+                Serial.print(TO_THETA);
+                Serial.print("\nTO_PSI: ");
+                Serial.print(TO_PSI);
+            }
+
+            setMotorAngles();	
+            // delay(100);
+        }
+    }	    
+}
+
+void parseData() {      // split the data into its parts
+    char * strtokIndx; // this is used by strtok() as an index
+
+    strtokIndx = strtok(tempChars,",");      // get the first part - the x float
+    float1FromPC = atof(strtokIndx);     // convert this part to an float
+ 
+    strtokIndx = strtok(NULL, ",");  // get the second part - the x float
+    float2FromPC = atof(strtokIndx);     // convert this part to an float
+
+     strtokIndx = strtok(NULL, ","); // get the third part - direction int
+     intFromPC = atoi(strtokIndx);     // convert this part to a integer
+     microDelay = intFromPC;
+
+}
+
+void setMotorAngles(){
+  digitalWrite(2, is_X_clockwise);    // setting the travel direction
+  digitalWrite(4, is_Y_clockwise);    //^
+  
+  int X_num_steps = (int)((TO_THETA/(2*M_PI))*gear_advantage*stepsPerRevolution);    // use the ratio of the circle to find steps to such angle
+  int Y_num_steps = (int)((TO_PSI/(2*M_PI))*gear_advantage*stepsPerRevolution);    // use the ratio of the circle to find steps to such angle
+
+  if (PRINTING_TIME == 1){
+    Serial.print("\nTheta_angle_fraction: ");
+    Serial.print(TO_THETA/(2*M_PI));
+    Serial.print("\nPsi_angle_fraction: ");
+    Serial.print(TO_PSI/(2*M_PI));
+
+    Serial.print("\nX_num_steps: ");
+    Serial.print(X_num_steps);
+    Serial.print("\nY_num_steps: ");
+    Serial.print(Y_num_steps);
+  }
+
+  // if (angle < 0){
+  //   // angle = 2*M_PI - angle;
+  //   angle = abs(angle);
+  // }
+  if (X_num_steps > Y_num_steps){
+    int ratio = 1;
+    if (Y_num_steps != 0){
+      ratio = X_num_steps/Y_num_steps;
+    }
+    
+    if (PRINTING_TIME == 1){
+        Serial.print("\n\nTHETA/PSI: ");
+        Serial.print(ratio);
+    }
+    for (int i = 0; i < X_num_steps; i++){
+      if (Y_num_steps != 0 && i % ratio == 0){
+        digitalWrite(5, HIGH);   // Y
+      }
+      digitalWrite(3, HIGH);      // X
+      delayMicroseconds(microDelay);
+      if(Y_num_steps != 0 && i % ratio == 0){
+        digitalWrite(5, LOW);    // Y
+      }
+      digitalWrite(3, LOW);       // X
+    }
+  }
+  else if (Y_num_steps > X_num_steps){
+    int ratio = 1;
+    if (X_num_steps != 0) {
+      ratio = Y_num_steps/X_num_steps;
+    }
+    
+    if (PRINTING_TIME == 1){
+        Serial.print("\nPSI/THETA: ");
+        Serial.print(ratio);
+    }
+
+    for (int i = 0; i < Y_num_steps; i++){
+      if (X_num_steps != 0 && i % ratio == 0){
+        digitalWrite(3, HIGH);   // X
+      }
+      digitalWrite(5, HIGH);      // Y
+      delayMicroseconds(microDelay);
+      if(X_num_steps != 0 && i % ratio == 0){
+        digitalWrite(3, LOW);    // X
+      }
+      digitalWrite(5, LOW);       // Y
+    }
+  }
+}
+
+
+/* WITH LIBRARY....
+
+//www.elegoo.com
+//2018.10.25
+
+  Stepper Motor Control - one revolution
+
+  This program drives a unipolar or bipolar stepper motor.
+  The motor is attached to digital pins 8 - 11 of the Arduino.
+
+  The motor should revolve one revolution in one direction, then
+  one revolution in the other direction.
+
+
+
+#include <Stepper.h>
+
+const int stepsPerRevolution = 2048;  // change this to fit the number of steps per revolution
+const int rolePerMinute = 15;         // Adjustable range of 28BYJ-48 stepper is 0~17 rpm
+
+// initialize the stepper library on pins 8 through 11:
+Stepper myStepper(stepsPerRevolution, 8, 10, 9, 11);
+
+void setup() {
+  myStepper.setSpeed(rolePerMinute);
+  // initialize the serial port:
+  Serial.begin(9600);
+  Serial.println("setup");
+
+}
+
+void loop() {  
+  // step one revolution  in one direction:
+  Serial.println("clockwise");
+  myStepper.step(-(-stepsPerRevolution));
+  delay(500);
+
+  // step one revolution in the other direction:
+  Serial.println("counterclockwise");
+  myStepper.step(-stepsPerRevolution);
+  delay(500);
+}
+*/
