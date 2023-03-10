@@ -2,18 +2,10 @@
 #Name: Taylor Sisneros
 #Email: sisnerot@oregonstate.edu
 
-# import everything from tkinter module
 from tkinter import *
-
-# time module
 import time
-
 import shutil
-
 import serial
-
-# serial communicate module
-#import serial
 
 # import messagebox from tkinter module
 import tkinter.messagebox
@@ -48,16 +40,8 @@ def begin_operation(Button6):
     y_coordinate = 0
     #writes output of canvas to display of EINK
     arduino1.write(bytes(b'X: %d Y: %d' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
     #sends gcode to second arduino
-    arduino2.write(bytes(b'G0 X0 Y0 F0'))
-    #keeps track of lines
-    global canvas_tracker
-    canvas_tracker = 1
-    #creates text, color, and changes font of Python GUI
-    canvas.create_text(520, 100, text="Robotic Arm Controls", fill = "Orange", font=('Arial 25 bold'))
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
-    #destroy button
+    arduino2.write(bytes(b'<320, 0, 4000>\n'))
     Button6.destroy()
 
 #Description: function to add 10 to x-coordinate and create horizontal line
@@ -70,18 +54,12 @@ def horizontal_line(canvas):
     global arduino2
     #add 10 to x-coordinate
     x_coordinate += 10
+    #sends gcode to second arduino
+    arduino2.write(bytes(b'<80, 0, 1000>\n'))
+    time.sleep(2)
     #sends signal to arduino to add 10 to x-coordinate
     arduino1.write(bytes(b'X: %d Y: %d' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
-    #sends gcode to second arduino
-    arduino2.write(bytes(b'G1 X10 Y10 F240\n'))
-    #keeps track of lines
-    global canvas_tracker
-    canvas_tracker += 1
-    #deletes previous line on screen
-    canvas.delete(canvas_tracker)
-    #update coordinates on canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
+    
     
 #Description: function to add 10 to y-coordinate and create vertical line
 #Variables: canvas
@@ -92,19 +70,15 @@ def vertical_line(canvas):
     global arduino1
     global arduino2
     #add 10 to y-coordinate
-    y_coordinate += 10
+    y_coordinate += 3
+    x_coordinate += 5
+    #sends gcode to second arduino
+    arduino2.write(bytes(b'<190, 0, 4000>\n'))
+    time.sleep(3)
+    arduino2.write(bytes(b'<190, 70, 4000>\n'))
+    time.sleep(3)
     #sends signal to arduino to add 10 to y-coordinate
     arduino1.write(bytes(b'X: %d Y: %d' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
-    #sends gcode to second arduino
-    arduino2.write(bytes(b'G01 X0 Y10 F240' % (x_coordinate, y_coordinate)))
-    #keeps track of lines
-    global canvas_tracker
-    canvas_tracker += 1
-    #delete previous line on screen
-    canvas.delete(canvas_tracker)
-    #upate coordinates on Canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
 
 #Description: function to reset coordinates
 #Variables: canvas
@@ -120,15 +94,8 @@ def reset(canvas):
     y_coordinate = 0
     #sends signal to reset coordinates
     arduino1.write(bytes(b'X: %d Y: %d' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
     #sends gcode to second arduino
-    arduino2.write(bytes(b'G01 X0 Y0 F0' % (x_coordinate, y_coordinate)))
-    #keeps track of lines
-    canvas_tracker += 1
-    #delete previous line on screen
-    canvas.delete(canvas_tracker)
-    #upate coordinates on Canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
+    arduino2.write(bytes(b'<320, 0, 4000>\n'))
 
 #Description: function to begin square, add 10 to x-coordinate
 #Variables: canvas
@@ -140,19 +107,13 @@ def square(canvas):
     global arduino1
     global arduino2
     #add 10 to x coordinate to start square
-    x_coordinate += 10
+    x_coordinate += 5
+    y_coordinate += 1
+    #sends gcode to second arduino
+    arduino2.write(bytes(b'<185, 40, 4000>\n'))
+    time.sleep(5.5)
     #sends signal to arduino to add 10 to x-coordinate 
     arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
-    #sends gcode to second arduino
-    arduino2.write(bytes(b'G01 X10 Y0 F240' % (x_coordinate, y_coordinate)))
-    #keeps track of lines
-    canvas_tracker += 1
-    #delete previous line on screen
-    canvas.delete(canvas_tracker)
-    #upate coordinates on Canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
-
 
     #delay for other square functions
     root.after(4000, square1)
@@ -171,18 +132,13 @@ def square1():
     global arduino1
     global arduino2
     #add 10 to y-coordinate
-    y_coordinate += 10
+    y_coordinate += 1
+    x_coordinate -= 1
+    #sends gcode to second arduino
+    arduino2.write(bytes(b'<170, 55, 4000>\n'))
+    time.sleep(2)
     #sends signal to arduino uno to add 10 to y-coordinate
     arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
-    #sends gcode to second arduino
-    arduino2.write(bytes(b'G01 X10 Y10 F240' % (x_coordinate, y_coordinate)))
-    #keeps track of line
-    canvas_tracker += 1
-    #delete previous line on screen
-    canvas.delete(canvas_tracker)
-    #upate coordinates on Canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
 
 #Description: function to update square, subtracts 10 from x-coordinate
 #Variables: canvas
@@ -194,18 +150,13 @@ def square2():
     global arduino1
     global arduino2
     #subtracts 10 from x-coordinate
-    x_coordinate -= 10
+    x_coordinate += 1
+    y_coordinate += 1
+    #sends gcode to second arduino
+    arduino2.write(bytes(b'<185, 70, 4000>\n'))
+    time.sleep(1.5)
     #sends signal, subtract 10 from x-coordinate
     arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
-    #sends gcode to second arduino
-    arduino2.write(bytes(b'G01 X0 Y10 F240' % (x_coordinate, y_coordinate)))
-    #keeps track of lines
-    canvas_tracker += 1
-    #delete previous line on screen
-    canvas.delete(canvas_tracker)
-    #upate coordinates on Canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
 
 #Description: function to finish square, subtracts 10 from y-coordinate
 #Variables: canvas
@@ -217,18 +168,19 @@ def square3():
     global arduino1
     global arduino2
     #subtracts 10 from y-coordinate
-    y_coordinate -= 10
+    y_coordinate -= 1
+    x_coordinate += 1
+    #sends gcode to second arduino
+    arduino2.write(bytes(b'<200, 55, 4000>\n'))
+    time.sleep(1)
     #sends signal, subtract 10 from y-coordinate
     arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
-    #sends gcode to second arduino
-    arduino2.write(bytes(b'G01 X0 Y0 F240' % (x_coordinate, y_coordinate)))
-    #keeps track of line
-    canvas_tracker += 1
-    #delete previous line on screen
-    canvas.delete(canvas_tracker)
-    #upate coordinates on Canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
+
+    arduino2.write(bytes(b'<185, 40, 4000>\n'))
+    time.sleep(3)
+    x_coordinate -= 1
+    y_coordinate -= 1
+    arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
 
 #Description: function to begin triangle, add 5 to x-coordinate and 10 to y-coordinate
 #Variables: canvas
@@ -240,18 +192,13 @@ def triangle(canvas):
     global arduino1
     global arduino2
     #add 10 to x-coordinate
-    x_coordinate += 10
+    x_coordinate += 3
+    y_coordinate += 1
+    #sends gcode to second arduino
+    arduino2.write(bytes(b'240, 40, 4000>\n'))
+    time.sleep(5)
     #sends signal, add 5 to x-coordinate, adds 10 to y-coordinate
     arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
-    #sends gcode to second arduino
-    arduino2.write(bytes(b'G01 X10 Y0 F240' % (x_coordinate, y_coordinate)))
-    #keeps track of line
-    canvas_tracker += 1
-    #delete previous line on screen
-    canvas.delete(canvas_tracker)
-    #upate coordinates on Canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
 
     #delay for triangle function
     root.after(4000, triangle1)
@@ -267,18 +214,12 @@ def triangle1():
     global arduino1
     global arduino2
     #Adds 10 from y-coordinate
-    y_coordinate += 10
+    x_coordinate += 1
+    #sends gcode to second arduino
+    arduino2.write(bytes(b'<280, 40, 4000>\n'))
+    time.sleep(2)
     #sends signal, add 5 to x-coordinate, subtract 10 from y-coordinate
     arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
-    time.sleep(1)
-    #sends gcode to second arduino
-    arduino2.write(bytes(b'G01 X10 Y10 F240' % (x_coordinate, y_coordinate)))
-    #keeps track of line
-    canvas_tracker += 1
-    #delete previous line on screen
-    canvas.delete(canvas_tracker)
-    #upate coordinates on Canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
 
 #Description: function to finish triangle, subtract 10 from x-coordinate
 #Variables: canvas
@@ -290,21 +231,26 @@ def triangle2():
     global arduino1
     global arduino2
     #subtract 10 from x-coordinate and y-coordinate
-    x_coordinate -= 10
-    y_coordinate -= 10
+    x_coordinate -= 1
+    y_coordinate += 1
+    #sends gcode to second arduino
+    arduino2.write(bytes(b'<260, 75, 4000>\n'))
+    time.sleep(1.5)
     #sends signal, subtracts 10 from x-coordinate
     arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
+
+    arduino2.write(bytes(b'<240, 40, 4000>\n'))
+    x_coordinate -= 1
+    y_coordinate -= 1
     time.sleep(1)
-    #sends gcode to second arduino
-    arduino2.write(bytes(b'G01 X0 Y0 F240' % (x_coordinate, y_coordinate)))
-    #keeps track of line
-    canvas_tracker += 1
-    #delete previous line on screen
-    canvas.delete(canvas_tracker)
-    #upate coordinates on Canvas
-    canvas.create_text(520, 300, text = "X:    %d      Y:     %d    " % (x_coordinate, y_coordinate),  fill = "black", font = ('Helvetica 12 bold'))
+    #sends signal, subtracts 10 from x-coordinate
+    arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
 
-
+    arduino2.write(bytes(b'<280, 40, 4000>\n'))
+    time.sleep(3)
+    x_coordinate += 1
+    #sends signal, subtracts 10 from x-coordinate
+    arduino1.write(bytes(b'X: %d Y: %d ' % (x_coordinate, y_coordinate)))
 
 #Create a canvas object
 canvas= Canvas(root, width = 1000, height = 1000) #bg="SpringGreen2")
@@ -312,7 +258,6 @@ canvas= Canvas(root, width = 1000, height = 1000) #bg="SpringGreen2")
 #Add a text in Canvas
 canvas.pack()
 
-  
 # Create Buttons
 Button1 = Button(root, text = "Triangle", pady = 10, activebackground = "Orange", command = lambda : root.after(2000, triangle(canvas)))
 Button2 = Button(root, text = "Square", pady = 10, activebackground = "Orange", command = lambda : root.after(2000, square(canvas)))
@@ -321,7 +266,6 @@ Button4 = Button(root, text = "Horizontal Line", pady = 10, activebackground = "
 Button5 = Button(root, text = "reset", pady = 10, activebackground = "Orange", command = lambda : reset(canvas))
 Button6 = Button(root, text = "Begin Operation", pady = 10, activebackground = "Orange", command=lambda : begin_operation(Button6))
 
-  
 # Set the position of buttons
 Button1.place(x = 400, y = 400)
 Button2.place(x = 550, y = 400)
